@@ -5,9 +5,10 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from sound_build import minecraft_audio, write_audio
+from client_build import MENU_VERSIONS, compile_menu
 
 ROOT = Path(__file__).resolve().parent
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 TARGETS = {
     "1.21.4": (21, (61, 0), "54.1.22"),
     "1.21.11": (21, (94, 1), "61.2.4"),
@@ -28,9 +29,26 @@ RESOURCE_FORMATS = {
 }
 
 
-def build(game, loader, audio=None):
+def chat_menu(game, custom):
+    choices = [("Rain", 1), ("Campfire", 2), ("Cave Drips", 3)]
+    if custom:
+        choices.append(("Custom Track", 6))
+    choices.append(("Stop Sounds", 4))
+    message = [{"text": "Quiet Craft", "bold": True, "color": "gold"}]
+    for label, selection in choices:
+        command = f"/trigger asmr set {selection}"
+        button = {"text": f" [{label}]", "color": "aqua", "bold": False}
+        if game == "1.21.4":
+            button["clickEvent"] = {"action": "run_command", "value": command}
+        else:
+            button["click_event"] = {"action": "run_command", "command": command}
+        message.append(button)
+    return "tellraw @s " + json.dumps(message) + "\n"
+
+
+def build(game, loader, audio=None, menu=None):
     java, pack_format, forge_version = TARGETS[game]
-    variant = "" if audio is None else "-custom"
+    variant = ("-menu" if menu else "") + ("-custom" if audio is not None else "")
     output = ROOT / "dist" / f"quiet-craft-{VERSION}-{loader}-{game}{variant}.jar"
     output.parent.mkdir(exist_ok=True)
     pack = {"description": "Quiet Craft ambience"}
@@ -46,7 +64,9 @@ def build(game, loader, audio=None):
         for source in sorted((ROOT / "pack").rglob("*")):
             if source.is_file():
                 archive_path = source.relative_to(ROOT / "pack").as_posix()
-                if audio is not None and source.name == "custom.mcfunction":
+                if source.name == "menu.mcfunction":
+                    jar.writestr(archive_path, chat_menu(game, audio is not None))
+                elif audio is not None and source.name == "custom.mcfunction":
                     jar.writestr(archive_path, (
                         "scoreboard players set @s qc_mode 4\n"
                         "stopsound @s ambient quiet_craft:custom\n"
@@ -56,6 +76,9 @@ def build(game, loader, audio=None):
                     jar.write(source, archive_path)
         if audio is not None:
             write_audio(jar, audio)
+        if menu:
+            for path, contents in menu.items():
+                jar.writestr(path, contents)
         jar.writestr("pack.mcmeta", json.dumps({"pack": pack}))
         if loader == "fabric":
             jar.writestr("fabric.mod.json", json.dumps({
@@ -65,6 +88,7 @@ def build(game, loader, audio=None):
                 "version": VERSION,
                 "description": "Opt-in rain, campfire and cave ambience.",
                 "environment": "*",
+                **({"mixins": [{"config": "quiet-craft.mixins.json", "environment": "client"}]} if menu else {}),
                 "depends": {
                     "minecraft": game,
                     "fabricloader": "*",
@@ -73,6 +97,9 @@ def build(game, loader, audio=None):
                 },
             }))
         else:
+            if menu:
+                jar.writestr("META-INF/MANIFEST.MF",
+                             "Manifest-Version: 1.0\r\nMixinConfigs: quiet-craft.mixins.json\r\n\r\n")
             major = forge_version.split(".")[0]
             jar.writestr("META-INF/mods.toml", f'''modLoader="lowcodefml"
 loaderVersion="[{major},{int(major) + 1})"
@@ -99,8 +126,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sound-api", help="Base URL for a running Quiet Craft sound API")
     parser.add_argument("--sound-id", default="plastic-container-tapping")
+    parser.add_argument("--client-menu", action="store_true", help="Compile the 26.1 and 26.2 client menus")
+    parser.add_argument("--client-sdk", type=Path, default=ROOT / ".client-sdk")
     args = parser.parse_args()
     audio = minecraft_audio(args.sound_api, args.sound_id) if args.sound_api else None
     for game_version in TARGETS:
+        menu = compile_menu(game_version, args.client_sdk) if args.client_menu and game_version in MENU_VERSIONS else None
         for mod_loader in ("fabric", "forge"):
-            print(build(game_version, mod_loader, audio).relative_to(ROOT))
+            print(build(game_version, mod_loader, audio, menu).relative_to(ROOT))

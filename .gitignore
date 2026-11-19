@@ -1,4 +1,5 @@
 dist/
+.client-sdk/
 servers/
 __pycache__/
 sound_api/audio/
