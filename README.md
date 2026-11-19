@@ -11,7 +11,11 @@ Quiet Craft adds opt-in ASMR ambience to Minecraft Java Edition. Each player cho
 
 Build all eight JARs with `python build.py`. Requires Python 3.8 or newer. Install only the JAR that matches your game version and loader in the server's `mods/` folder, then restart. On Fabric, install [Fabric API](https://modrinth.com/mod/fabric-api) for the same Minecraft version. The server script installs it automatically. The mod also works in a local single-player world with the matching loader.
 
-## Start a dedicated server
+## Host custom ASMR sounds
+
+The [sound API](sound_api/README.md) serves audio from disk and uses Google Sheets for its catalog. It runs independently of Minecraft. The current mod plays built-in Minecraft sounds.
+
+## Optional Minecraft dedicated server
 
 Install Python and the Java version from the table. Read the [Minecraft EULA](https://aka.ms/MinecraftEULA) before using the acceptance flag.
 
