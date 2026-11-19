@@ -8,6 +8,7 @@ import subprocess
 from urllib.request import Request, urlopen
 
 from build import FABRIC_API, ROOT, TARGETS, build
+from sound_build import minecraft_audio
 
 FABRIC_META = "https://meta.fabricmc.net/v2/versions"
 FABRIC_MAVEN = "https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api"
@@ -30,6 +31,8 @@ def main():
                         help="Accept the Minecraft EULA at https://aka.ms/MinecraftEULA")
     parser.add_argument("--install-only", action="store_true")
     parser.add_argument("--java", default="java", help="Java executable path")
+    parser.add_argument("--sound-api", help="Base URL for a running Quiet Craft sound API")
+    parser.add_argument("--sound-id", default="plastic-container-tapping")
     args = parser.parse_args()
 
     java = shutil.which(args.java)
@@ -65,7 +68,8 @@ def main():
             raise SystemExit(f"Forge did not generate {launch_args}. Check the installer log.")
         command = [java, "-Xms1G", "-Xmx2G", f"@{launch_args.as_posix()}"]
 
-    jar = build(args.game, args.loader)
+    audio = minecraft_audio(args.sound_api, args.sound_id) if args.sound_api else None
+    jar = build(args.game, args.loader, audio)
     mods = server / "mods"
     mods.mkdir(exist_ok=True)
     if args.loader == "fabric":
@@ -74,6 +78,12 @@ def main():
         if not api.exists():
             download(f"{FABRIC_MAVEN}/{api_version}/{api.name}", api)
     shutil.copy2(jar, mods / jar.name)
+    for installed in mods.glob(f"quiet-craft-*-{args.loader}-{args.game}*.jar"):
+        if installed.name != jar.name and (
+            installed.name.endswith(f"-{args.game}.jar")
+            or installed.name.endswith(f"-{args.game}-custom.jar")
+        ):
+            installed.unlink()
 
     eula = server / "eula.txt"
     if args.accept_eula:

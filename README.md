@@ -13,7 +13,15 @@ Build all eight JARs with `python build.py`. Requires Python 3.8 or newer. Insta
 
 ## Host custom ASMR sounds
 
-The [sound API](sound_api/README.md) serves audio from disk and uses Google Sheets for its catalog. It runs independently of Minecraft. The current mod plays built-in Minecraft sounds.
+The [sound API repository](https://github.com/jryoung201-code/ASMR-mod-API-server) contains the standalone Render service and Google Sheets setup.
+
+To bundle a track you can use, start the sound API and install FFmpeg. From the mod repository, run:
+
+```sh
+python build.py --sound-api http://127.0.0.1:8080 --sound-id plastic-container-tapping
+```
+
+Use the Render HTTPS URL in place of localhost once the hosted catalog can serve the track. The build fetches the enabled sound, converts it to Ogg Vorbis, and puts it into all eight `-custom.jar` builds. To play the track, install the matching custom JAR and run `/trigger asmr set 6`. Run `/trigger asmr set 4` to stop it. On multiplayer, install the custom JAR on the server and participating clients. The game plays the embedded audio without contacting the API during gameplay.
 
 ## Optional Minecraft dedicated server
 
@@ -34,5 +42,6 @@ Replace the arguments with your game version and `fabric` or `forge`. Use `--jav
 | `/trigger asmr set 2` | Campfire |
 | `/trigger asmr set 3` | Cave drips |
 | `/trigger asmr set 4` | Off |
+| `/trigger asmr set 6` | Play the bundled custom track once |
 
 The effects use Minecraft's Ambient/Environment volume slider. They are off by default, and players can use the commands without operator permissions.
